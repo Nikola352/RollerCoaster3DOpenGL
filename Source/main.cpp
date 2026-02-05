@@ -102,7 +102,7 @@ int main()
     glfwSetKeyCallback(window, keyCallback);
 
     // Load models and shaders
-    Model fox("res/low-poly-fox.obj");
+    Model track("res/track.obj");
     Shader sceneShader("Shader/basic.vert", "Shader/basic.frag");
     Shader overlayShader("Shader/texture.vert", "Shader/texture.frag");
 
@@ -115,15 +115,17 @@ int main()
 
     // Setup 3D scene
     sceneShader.use();
-    sceneShader.setVec3("uLightPos", 0, 1, 3);
-    sceneShader.setVec3("uViewPos", 0, 0, 5);
+    sceneShader.setVec3("uLightPos", 50, 100, 50);
+    sceneShader.setVec3("uViewPos", 0, 30, 100);
     sceneShader.setVec3("uLightColor", 1, 1, 1);
+    sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
+    sceneShader.setBool("uUseTexture", false);  // Track has no texture
 
     float aspectRatio = (float)mode->width / (float)mode->height;
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 500.0f);
     sceneShader.setMat4("uP", projection);
 
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 view = glm::lookAt(glm::vec3(120.0f, 60.0f, -90.0f), glm::vec3(30.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     sceneShader.setMat4("uV", view);
 
     glm::mat4 model = glm::mat4(1.0f);
@@ -169,7 +171,7 @@ int main()
         sceneShader.use();
         model = glm::rotate(model, glm::radians(0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
         sceneShader.setMat4("uM", model);
-        fox.Draw(sceneShader);
+        track.Draw(sceneShader);
 
         // Render 2D overlay (student info)
         glDepthFunc(GL_ALWAYS); // Always pass depth test for overlay
