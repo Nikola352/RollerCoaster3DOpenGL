@@ -24,6 +24,37 @@ bool faceCullingEnabled = false;
 bool cullBackFaces = true;
 bool isCCWWinding = true;
 
+// Camera state (orbit camera)
+float cameraYaw = -45.0f;    // Horizontal angle
+float cameraPitch = 20.0f;   // Vertical angle
+float cameraDistance = 150.0f;
+glm::vec3 cameraTarget(0.0f, 10.0f, 0.0f);
+double lastMouseX = 0, lastMouseY = 0;
+bool firstMouse = true;
+
+void mouseCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    // Only rotate camera when left mouse button is pressed
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS)
+    {
+        lastMouseX = xpos;
+        lastMouseY = ypos;
+        return;
+    }
+
+    float xoffset = (float)(xpos - lastMouseX) * 0.3f;
+    float yoffset = (float)(lastMouseY - ypos) * 0.3f;
+    lastMouseX = xpos;
+    lastMouseY = ypos;
+
+    cameraYaw += xoffset;
+    cameraPitch += yoffset;
+
+    // Clamp pitch to avoid flipping
+    if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (action != GLFW_PRESS) return;
@@ -98,8 +129,9 @@ int main()
         return -3;
     }
 
-    // Set key callback
+    // Set callbacks
     glfwSetKeyCallback(window, keyCallback);
+    glfwSetCursorPosCallback(window, mouseCallback);
 
     // Load models and shaders
     Model track("res/track.obj");
@@ -125,8 +157,7 @@ int main()
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 500.0f);
     sceneShader.setMat4("uP", projection);
 
-    glm::mat4 view = glm::lookAt(glm::vec3(120.0f, 60.0f, -90.0f), glm::vec3(30.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    sceneShader.setMat4("uV", view);
+    // View matrix will be calculated each frame based on mouse input
 
     glm::mat4 model = glm::mat4(1.0f);
 
@@ -152,11 +183,12 @@ int main()
     glFrontFace(GL_CCW);
 
     std::cout << "Controls:" << std::endl;
-    std::cout << "  ESC - Quit" << std::endl;
-    std::cout << "  1   - Toggle depth test" << std::endl;
-    std::cout << "  2   - Toggle face culling" << std::endl;
-    std::cout << "  3   - Toggle back/front face culling" << std::endl;
-    std::cout << "  4   - Toggle winding order (CCW/CW)" << std::endl;
+    std::cout << "  Mouse - Orbit camera around track" << std::endl;
+    std::cout << "  ESC   - Quit" << std::endl;
+    std::cout << "  1     - Toggle depth test" << std::endl;
+    std::cout << "  2     - Toggle face culling" << std::endl;
+    std::cout << "  3     - Toggle back/front face culling" << std::endl;
+    std::cout << "  4     - Toggle winding order (CCW/CW)" << std::endl;
 
     double lastTimeForRefresh = glfwGetTime();
 
@@ -167,9 +199,18 @@ int main()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Calculate camera position from spherical coordinates
+        float camX = cameraDistance * cos(glm::radians(cameraPitch)) * cos(glm::radians(cameraYaw));
+        float camY = cameraDistance * sin(glm::radians(cameraPitch));
+        float camZ = cameraDistance * cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
+        glm::vec3 cameraPos = cameraTarget + glm::vec3(camX, camY, camZ);
+
+        glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
+
         // Render 3D scene
         sceneShader.use();
-        model = glm::rotate(model, glm::radians(0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
+        sceneShader.setMat4("uV", view);
+        sceneShader.setVec3("uViewPos", cameraPos);
         sceneShader.setMat4("uM", model);
         track.Draw(sceneShader);
 
