@@ -145,16 +145,23 @@
     <ClCompile Include="Source\shader.cpp" />
     <ClCompile Include="Source\mesh.cpp" />
     <ClCompile Include="Source\model.cpp" />
+    <ClCompile Include="Source\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.frag" />
     <None Include="Shader\basic.vert" />
+    <None Include="Shader\texture.frag" />
+    <None Include="Shader\texture.vert" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\student.png" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Header\shader.hpp" />
     <ClInclude Include="Header\mesh.hpp" />
     <ClInclude Include="Header\model.hpp" />
+    <ClInclude Include="Header\util.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

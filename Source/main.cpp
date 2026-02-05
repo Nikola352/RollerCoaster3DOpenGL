@@ -1,28 +1,74 @@
-//Opis: Primjer ucitavanja modela upotrebom ASSIMP biblioteke
-//Preuzeto sa learnOpenGL
+//Opis: 3D RollerCoaster projekat
+//OpenGL 3.3+ sa programabilnim pajplajnom
 
 #define _CRT_SECURE_NO_WARNINGS
+#define STB_IMAGE_IMPLEMENTATION
 
 #include <iostream>
-#include <fstream>
-#include <sstream>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "../Header/shader.hpp"
 #include "../Header/model.hpp"
+#include "../Header/util.hpp"
 
-const unsigned int wWidth = 800;
-const unsigned int wHeight = 600;
+const int FPS = 75;
+
+// Global state for toggles (consistent with Aquarium project)
+bool depthTestEnabled = true;
+bool faceCullingEnabled = false;
+bool cullBackFaces = true;
+bool isCCWWinding = true;
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (action != GLFW_PRESS) return;
+
+    switch (key)
+    {
+    case GLFW_KEY_ESCAPE:
+        glfwSetWindowShouldClose(window, true);
+        break;
+
+    case GLFW_KEY_1:
+        depthTestEnabled = !depthTestEnabled;
+        if (depthTestEnabled)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        std::cout << (depthTestEnabled ? "DEPTH TEST ENABLED" : "DEPTH TEST DISABLED") << std::endl;
+        break;
+
+    case GLFW_KEY_2:
+        faceCullingEnabled = !faceCullingEnabled;
+        if (faceCullingEnabled)
+            glEnable(GL_CULL_FACE);
+        else
+            glDisable(GL_CULL_FACE);
+        std::cout << (faceCullingEnabled ? "FACE CULLING ENABLED" : "FACE CULLING DISABLED") << std::endl;
+        break;
+
+    case GLFW_KEY_3:
+        cullBackFaces = !cullBackFaces;
+        glCullFace(cullBackFaces ? GL_BACK : GL_FRONT);
+        std::cout << (cullBackFaces ? "CULLING BACK" : "CULLING FRONT") << std::endl;
+        break;
+
+    case GLFW_KEY_4:
+        isCCWWinding = !isCCWWinding;
+        glFrontFace(isCCWWinding ? GL_CCW : GL_CW);
+        std::cout << (isCCWWinding ? "CCW WINDING" : "CW WINDING") << std::endl;
+        break;
+    }
+}
 
 int main()
 {
-    if(!glfwInit())
+    if (!glfwInit())
     {
         std::cout << "GLFW fail!\n" << std::endl;
         return -1;
@@ -32,7 +78,12 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(wWidth, wHeight, "LearnOpenGL", NULL, NULL);
+    // Get primary monitor for full screen
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+    // Create full screen window
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "RollerCoaster 3D", monitor, NULL);
     if (window == NULL)
     {
         std::cout << "Window fail!\n" << std::endl;
@@ -41,44 +92,101 @@ int main()
     }
     glfwMakeContextCurrent(window);
 
-    if (glewInit() !=GLEW_OK)
+    if (glewInit() != GLEW_OK)
     {
         std::cout << "GLEW fail! :(\n" << std::endl;
         return -3;
     }
 
+    // Set key callback
+    glfwSetKeyCallback(window, keyCallback);
 
-    Model lija("res/low-poly-fox.obj");
-    //Tjemena i baferi su definisani u model klasi i naprave se pri stvaranju objekata
+    // Load models and shaders
+    Model fox("res/low-poly-fox.obj");
+    Shader sceneShader("Shader/basic.vert", "Shader/basic.frag");
+    Shader overlayShader("Shader/texture.vert", "Shader/texture.frag");
 
-    Shader unifiedShader("Shader/basic.vert", "Shader/basic.frag");
+    // Load student info texture
+    unsigned int studentTexture = loadTexture("res/student.png");
 
-    //Render petlja
-    unifiedShader.use();
-    unifiedShader.setVec3("uLightPos", 0, 1, 3);
-    unifiedShader.setVec3("uViewPos", 0, 0, 5);
-    unifiedShader.setVec3("uLightColor", 1, 1, 1);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)wWidth / (float)wHeight, 0.1f, 100.0f);
-    unifiedShader.setMat4("uP", projection);
+    // Setup overlay quad
+    unsigned int overlayVAO, overlayVBO;
+    setupOverlayQuad(overlayVAO, overlayVBO);
+
+    // Setup 3D scene
+    sceneShader.use();
+    sceneShader.setVec3("uLightPos", 0, 1, 3);
+    sceneShader.setVec3("uViewPos", 0, 0, 5);
+    sceneShader.setVec3("uLightColor", 1, 1, 1);
+
+    float aspectRatio = (float)mode->width / (float)mode->height;
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+    sceneShader.setMat4("uP", projection);
+
     glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    unifiedShader.setMat4("uV", view);
+    sceneShader.setMat4("uV", view);
+
     glm::mat4 model = glm::mat4(1.0f);
 
+    // Setup overlay shader (orthographic projection)
+    overlayShader.use();
+    glm::mat4 orthoProjection = glm::mat4(1.0f); // Identity for NDC
+    overlayShader.setMat4("uP", orthoProjection);
+    overlayShader.setInt("uTexture", 0);
+
+    // Set blue background color
+    glClearColor(0.245f, 0.6f, 0.85f, 1.0f);
+
+    // Enable depth test by default
     glEnable(GL_DEPTH_TEST);
+
+    // Enable blending for transparent overlay
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Face culling setup
+    glDisable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    std::cout << "Controls:" << std::endl;
+    std::cout << "  ESC - Quit" << std::endl;
+    std::cout << "  1   - Toggle depth test" << std::endl;
+    std::cout << "  2   - Toggle face culling" << std::endl;
+    std::cout << "  3   - Toggle back/front face culling" << std::endl;
+    std::cout << "  4   - Toggle winding order (CCW/CW)" << std::endl;
+
+    double lastTimeForRefresh = glfwGetTime();
+
+    // Render loop
     while (!glfwWindowShouldClose(window))
     {
-
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, true);
+        glfwPollEvents();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Render 3D scene
+        sceneShader.use();
         model = glm::rotate(model, glm::radians(0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
-        unifiedShader.setMat4("uM", model);
-        lija.Draw(unifiedShader);
+        sceneShader.setMat4("uM", model);
+        fox.Draw(sceneShader);
+
+        // Render 2D overlay (student info)
+        glDepthFunc(GL_ALWAYS); // Always pass depth test for overlay
+        overlayShader.use();
+        glBindTexture(GL_TEXTURE_2D, studentTexture);
+        glBindVertexArray(overlayVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDepthFunc(GL_LESS); // Reset depth function
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
+        limitFPS(lastTimeForRefresh, FPS);
     }
+
+    // Cleanup
+    glDeleteVertexArrays(1, &overlayVAO);
+    glDeleteBuffers(1, &overlayVBO);
+    glDeleteTextures(1, &studentTexture);
 
     glfwTerminate();
     return 0;
