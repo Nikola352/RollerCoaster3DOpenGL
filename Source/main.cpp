@@ -34,9 +34,8 @@ glm::vec3 cameraTarget(0.0f, 10.0f, 0.0f);
 double lastMouseX = 0, lastMouseY = 0;
 bool firstMouse = true;
 
-// Ride state
-bool rideRunning = false;
-float wagonSpeed = 0.05f;  // Speed in track units per second (0.05 = full loop in 20 seconds)
+// Wagon pointer for keyboard callback access
+Wagon* g_wagon = nullptr;
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -102,8 +101,19 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         break;
 
     case GLFW_KEY_ENTER:
-        rideRunning = !rideRunning;
-        std::cout << (rideRunning ? "RIDE STARTED" : "RIDE STOPPED") << std::endl;
+        if (g_wagon)
+        {
+            if (g_wagon->isRideRunning())
+            {
+                g_wagon->stopRide();
+                std::cout << "RIDE STOPPED" << std::endl;
+            }
+            else
+            {
+                g_wagon->startRide();
+                std::cout << "RIDE STARTED" << std::endl;
+            }
+        }
         break;
     }
 }
@@ -157,7 +167,9 @@ int main()
     Wagon wagon(8.0f, 5.0f, 14.0f);
     wagon.init();
     wagon.setHeightOffset(3.5f);  // Height above track center line
-    wagon.updateFromTrackPath(trackPath, 0.3f);  // Start at t=0
+    wagon.setTrackParameter(0.25f);
+    wagon.updateFromTrackPath(trackPath, wagon.getTrackParameter());
+    g_wagon = &wagon;  // Set global pointer for keyboard callback
 
     // Load student info texture
     unsigned int studentTexture = loadTexture("res/student.png");
@@ -214,7 +226,6 @@ int main()
 
     double lastTimeForRefresh = glfwGetTime();
     double lastTime = glfwGetTime();
-    float trackT = 0.3f;  // Current position on track (matching initial wagon position)
 
     // Render loop
     while (!glfwWindowShouldClose(window))
@@ -226,17 +237,8 @@ int main()
 
         glfwPollEvents();
 
-        // Update wagon position if ride is running
-        if (rideRunning)
-        {
-            trackT += wagonSpeed * deltaTime;
-            // Loop back to start when reaching the end
-            if (trackT >= 1.0f)
-            {
-                trackT -= 1.0f;
-            }
-            wagon.updateFromTrackPath(trackPath, trackT);
-        }
+        // Update wagon physics
+        wagon.updatePhysics(trackPath, deltaTime);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -279,6 +281,7 @@ int main()
     }
 
     // Cleanup
+    g_wagon = nullptr;
     glDeleteVertexArrays(1, &overlayVAO);
     glDeleteBuffers(1, &overlayVBO);
     glDeleteTextures(1, &studentTexture);

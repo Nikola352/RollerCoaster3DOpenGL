@@ -11,7 +11,9 @@ Wagon::Wagon(float width, float height, float depth)
       upDir(0.0f, 1.0f, 0.0f),
       rightDir(1.0f, 0.0f, 0.0f),
       trackT(0.0f),
-      heightOffset(1.0f)  // Default height above track center
+      heightOffset(1.0f),
+      rideState(RideState::STOPPED),
+      velocity(0.0f)
 {
 }
 
@@ -62,6 +64,81 @@ void Wagon::updateFromTrackPath(const TrackPath& path, float t)
     // Set orientation to follow track
     glm::vec3 forward = path.getForward(t);
     setOrientation(forward, up);
+}
+
+void Wagon::startRide()
+{
+    if (rideState == RideState::STOPPED)
+    {
+        rideState = RideState::STARTING;
+        velocity = 0.0f;
+    }
+}
+
+void Wagon::stopRide()
+{
+    rideState = RideState::STOPPED;
+    velocity = 0.0f;
+}
+
+void Wagon::updatePhysics(const TrackPath& path, float deltaTime)
+{
+    if (rideState == RideState::STOPPED || !path.isInitialized())
+    {
+        return;
+    }
+
+    if (rideState == RideState::STARTING)
+    {
+        // Chain lift phase: accelerate steadily until reaching cruise speed
+        velocity += CHAIN_LIFT_ACCEL * deltaTime;
+
+        if (velocity >= CRUISE_SPEED)
+        {
+            velocity = CRUISE_SPEED;
+            rideState = RideState::RUNNING;
+        }
+    }
+    else // RideState::RUNNING
+    {
+        // Get forward direction to calculate slope
+        glm::vec3 forward = path.getForward(trackT);
+
+        // Slope is the Y component of the forward direction
+        // Positive = going uphill, Negative = going downhill
+        float slope = forward.y;
+
+        // Apply gravity effect: decelerate uphill, accelerate downhill
+        float acceleration = -GRAVITY_EFFECT * slope;
+
+        // Apply friction (always opposes motion)
+        acceleration -= FRICTION * velocity;
+
+        // Update velocity
+        velocity += acceleration * deltaTime;
+
+        // Clamp velocity to reasonable bounds
+        if (velocity < MIN_VELOCITY)
+        {
+            velocity = MIN_VELOCITY;
+        }
+        if (velocity > MAX_VELOCITY)
+        {
+            velocity = MAX_VELOCITY;
+        }
+    }
+
+    // Update track position
+    trackT += velocity * deltaTime;
+
+    // Loop back to start when reaching the end
+    if (trackT >= 1.0f)
+    {
+        trackT -= 1.0f;
+    }
+
+    // Update wagon transform
+    updateFromTrackPath(path, trackT);
 }
 
 void Wagon::setupMesh()
