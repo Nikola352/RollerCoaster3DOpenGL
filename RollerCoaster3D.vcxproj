@@ -146,6 +146,8 @@
     <ClCompile Include="Source\mesh.cpp" />
     <ClCompile Include="Source\model.cpp" />
     <ClCompile Include="Source\util.cpp" />
+    <ClCompile Include="Source\wagon.cpp" />
+    <ClCompile Include="Source\trackpath.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.frag" />
@@ -162,6 +164,8 @@
     <ClInclude Include="Header\mesh.hpp" />
     <ClInclude Include="Header\model.hpp" />
     <ClInclude Include="Header\util.hpp" />
+    <ClInclude Include="Header\wagon.hpp" />
+    <ClInclude Include="Header\trackpath.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

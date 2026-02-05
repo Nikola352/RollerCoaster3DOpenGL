@@ -15,6 +15,8 @@
 #include "../Header/shader.hpp"
 #include "../Header/model.hpp"
 #include "../Header/util.hpp"
+#include "../Header/wagon.hpp"
+#include "../Header/trackpath.hpp"
 
 const int FPS = 75;
 
@@ -31,6 +33,10 @@ float cameraDistance = 150.0f;
 glm::vec3 cameraTarget(0.0f, 10.0f, 0.0f);
 double lastMouseX = 0, lastMouseY = 0;
 bool firstMouse = true;
+
+// Ride state
+bool rideRunning = false;
+float wagonSpeed = 0.05f;  // Speed in track units per second (0.05 = full loop in 20 seconds)
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -94,6 +100,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glFrontFace(isCCWWinding ? GL_CCW : GL_CW);
         std::cout << (isCCWWinding ? "CCW WINDING" : "CW WINDING") << std::endl;
         break;
+
+    case GLFW_KEY_ENTER:
+        rideRunning = !rideRunning;
+        std::cout << (rideRunning ? "RIDE STARTED" : "RIDE STOPPED") << std::endl;
+        break;
     }
 }
 
@@ -137,6 +148,16 @@ int main()
     Model track("res/track.obj");
     Shader sceneShader("Shader/basic.vert", "Shader/basic.frag");
     Shader overlayShader("Shader/texture.vert", "Shader/texture.frag");
+
+    // Extract track center line for wagon positioning
+    TrackPath trackPath;
+    trackPath.extractFromModel(track, 300, 384);
+
+    // Create wagon and place it at the beginning of the track
+    Wagon wagon(8.0f, 5.0f, 14.0f);
+    wagon.init();
+    wagon.setHeightOffset(3.5f);  // Height above track center line
+    wagon.updateFromTrackPath(trackPath, 0.3f);  // Start at t=0
 
     // Load student info texture
     unsigned int studentTexture = loadTexture("res/student.png");
@@ -184,6 +205,7 @@ int main()
 
     std::cout << "Controls:" << std::endl;
     std::cout << "  Mouse - Orbit camera around track" << std::endl;
+    std::cout << "  ENTER - Start/stop ride" << std::endl;
     std::cout << "  ESC   - Quit" << std::endl;
     std::cout << "  1     - Toggle depth test" << std::endl;
     std::cout << "  2     - Toggle face culling" << std::endl;
@@ -191,11 +213,30 @@ int main()
     std::cout << "  4     - Toggle winding order (CCW/CW)" << std::endl;
 
     double lastTimeForRefresh = glfwGetTime();
+    double lastTime = glfwGetTime();
+    float trackT = 0.3f;  // Current position on track (matching initial wagon position)
 
     // Render loop
     while (!glfwWindowShouldClose(window))
     {
+        // Calculate delta time
+        double currentTime = glfwGetTime();
+        float deltaTime = static_cast<float>(currentTime - lastTime);
+        lastTime = currentTime;
+
         glfwPollEvents();
+
+        // Update wagon position if ride is running
+        if (rideRunning)
+        {
+            trackT += wagonSpeed * deltaTime;
+            // Loop back to start when reaching the end
+            if (trackT >= 1.0f)
+            {
+                trackT -= 1.0f;
+            }
+            wagon.updateFromTrackPath(trackPath, trackT);
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -212,15 +253,26 @@ int main()
         sceneShader.setMat4("uV", view);
         sceneShader.setVec3("uViewPos", cameraPos);
         sceneShader.setMat4("uM", model);
+
+        sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
         track.Draw(sceneShader);
+
+        // Draw wagon
+        wagon.draw(sceneShader);
 
         // Render 2D overlay (student info)
         glDepthFunc(GL_ALWAYS); // Always pass depth test for overlay
+        glDisable(GL_CULL_FACE); // Disable culling for overlay
         overlayShader.use();
         glBindTexture(GL_TEXTURE_2D, studentTexture);
         glBindVertexArray(overlayVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glDepthFunc(GL_LESS); // Reset depth function
+        // Reset culling settings
+        if (faceCullingEnabled)
+            glEnable(GL_CULL_FACE);
+        else
+            glDisable(GL_CULL_FACE);
 
         glfwSwapBuffers(window);
         limitFPS(lastTimeForRefresh, FPS);
