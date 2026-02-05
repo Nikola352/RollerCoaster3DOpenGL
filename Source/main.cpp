@@ -14,8 +14,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "shader.hpp"
-#include "model.hpp"
+#include "../Header/shader.hpp"
+#include "../Header/model.hpp"
 
 const unsigned int wWidth = 800;
 const unsigned int wHeight = 600;
@@ -51,7 +51,7 @@ int main()
     Model lija("res/low-poly-fox.obj");
     //Tjemena i baferi su definisani u model klasi i naprave se pri stvaranju objekata
 
-    Shader unifiedShader("basic.vert", "basic.frag");
+    Shader unifiedShader("Shader/basic.vert", "Shader/basic.frag");
 
     //Render petlja
     unifiedShader.use();
@@ -83,5 +83,3 @@ int main()
     glfwTerminate();
     return 0;
 }
-
-

@@ -141,18 +141,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="shader.hpp" />
+    <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\shader.cpp" />
+    <ClCompile Include="Source\mesh.cpp" />
+    <ClCompile Include="Source\model.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="basic.frag" />
-    <None Include="basic.vert" />
+    <None Include="Shader\basic.frag" />
+    <None Include="Shader\basic.vert" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="mesh.hpp" />
-    <ClInclude Include="model.hpp" />
-    <ClInclude Include="texture.hpp" />
+    <ClInclude Include="Header\shader.hpp" />
+    <ClInclude Include="Header\mesh.hpp" />
+    <ClInclude Include="Header\model.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
