@@ -1,4 +1,3 @@
-#define STB_IMAGE_IMPLEMENTATION
 #include "../stb_image.h"
 
 #include "../Header/model.hpp"
@@ -160,6 +159,9 @@ unsigned int TextureFromFile(const char* path, const string& directory, bool gam
 
     unsigned int textureID;
     glGenTextures(1, &textureID);
+
+    // Don't flip image - ASSIMP already flips UV coordinates via aiProcess_FlipUVs
+    stbi_set_flip_vertically_on_load(false);
 
     int width, height, nrComponents;
     unsigned char* data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
