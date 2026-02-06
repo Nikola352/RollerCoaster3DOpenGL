@@ -72,6 +72,7 @@ private:
     void drawSingleSeat(Shader& shader, const glm::mat4& wagonModelMatrix, int index);
 
     unsigned int textureID;
+    unsigned int seatTextureID;
 
     float width, height, depth;
     glm::vec3 position;

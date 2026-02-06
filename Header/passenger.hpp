@@ -31,6 +31,8 @@ private:
     // Seatbelt rendering
     unsigned int seatbeltVAO = 0;
     unsigned int seatbeltVBO = 0;
+    static unsigned int seatbeltTextureID;
+    static bool seatbeltTextureLoaded;
     void setupSeatbeltMesh();
     void drawSeatbelt(Shader& shader, const Wagon& wagon);
 

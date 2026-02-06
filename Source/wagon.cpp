@@ -15,7 +15,8 @@ Wagon::Wagon(float width, float height, float depth)
       heightOffset(1.0f),
       rideState(RideState::STOPPED),
       velocity(0.0f),
-      textureID(0)
+      textureID(0),
+      seatTextureID(0)
 {
 }
 
@@ -30,6 +31,10 @@ Wagon::~Wagon()
     {
         glDeleteTextures(1, &textureID);
     }
+    if (seatTextureID != 0)
+    {
+        glDeleteTextures(1, &seatTextureID);
+    }
 }
 
 void Wagon::init()
@@ -37,6 +42,7 @@ void Wagon::init()
     setupMesh();
     setupSeatMesh();
     textureID = loadTexture("res/textures/wagon_texture.jpg");
+    seatTextureID = loadTexture("res/textures/seat_texture.jpg");
 }
 
 void Wagon::setPosition(const glm::vec3& pos)
@@ -260,10 +266,12 @@ void Wagon::draw(Shader& shader)
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 
-    // Draw Seats (solid color, no texture)
-    shader.setBool("uUseTexture", false);
+    // Draw Seats with texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, seatTextureID);
+    shader.setInt("uDiffMap1", 0);
+    shader.setBool("uUseTexture", true);
     glBindVertexArray(seatVAO);
-    shader.setVec3("uMaterialColor", color * 0.5f); // Make seats slightly darker
     for (int i = 0; i < 8; ++i) {
         drawSingleSeat(shader, model, i);
     }
@@ -272,48 +280,54 @@ void Wagon::draw(Shader& shader)
 
 void Wagon::setupSeatMesh() {
     float v[] = {
-        // Position (3)     // Normal (3)
-        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
-         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
-         0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
-         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
-        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
-        -0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+        // Position (3)     // Normal (3)         // UV (2)
+        // Back face (-Z)
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    0.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    1.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    1.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    1.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    0.0f, 0.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,    0.0f, 1.0f,
 
-        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-         0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
-        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+        // Front face (+Z)
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    0.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    1.0f, 1.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    1.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    0.0f, 1.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,    0.0f, 0.0f,
 
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
-        -0.5f, 0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
-        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
-        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
-        -0.5f,-0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
-        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+        // Left face (-X)
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,    1.0f, 1.0f,
+        -0.5f, 0.5f,-0.5f, -1.0f, 0.0f, 0.0f,    0.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        -0.5f,-0.5f, 0.5f, -1.0f, 0.0f, 0.0f,    1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,    1.0f, 1.0f,
 
-         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f, 0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,-0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
+        // Right face (+X)
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,    0.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,    1.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  1.0f, 0.0f, 0.0f,    1.0f, 1.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,    1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,    0.0f, 1.0f,
+         0.5f,-0.5f, 0.5f,  1.0f, 0.0f, 0.0f,    0.0f, 0.0f,
 
-        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
-         0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
-         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
-         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
-        -0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
-        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
+        // Bottom face (-Y)
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,    0.0f, 0.0f,
+         0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,    1.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,    1.0f, 1.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,    1.0f, 1.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,    0.0f, 1.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,    0.0f, 0.0f,
 
-        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f
+        // Top face (+Y)
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,    0.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,    1.0f, 1.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,    1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,    1.0f, 1.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,    0.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,    0.0f, 1.0f
     };
 
     glGenVertexArrays(1, &seatVAO);
@@ -321,10 +335,19 @@ void Wagon::setupSeatMesh() {
     glBindVertexArray(seatVAO);
     glBindBuffer(GL_ARRAY_BUFFER, seatVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+
+    int stride = 8 * sizeof(float);
+    // Position - location 0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // Normal - location 1
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // UV - location 2
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
 }
 
 void Wagon::drawSingleSeat(Shader& shader, const glm::mat4& wagonModel, int index) {

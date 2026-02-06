@@ -2,15 +2,26 @@
 #include "../Header/model.hpp"
 #include "../Header/shader.hpp"
 #include "../Header/wagon.hpp"
+#include "../Header/util.hpp"
 
 #include <GL/glew.h>
 #include <glm/gtc/matrix_transform.hpp>
+
+// Static members for shared seatbelt texture
+unsigned int Passenger::seatbeltTextureID = 0;
+bool Passenger::seatbeltTextureLoaded = false;
 
 Passenger::Passenger(const std::string& modelPath, int seatIndex)
     : seatIndex(seatIndex)
 {
     model = new Model(modelPath);
     setupSeatbeltMesh();
+
+    // Load seatbelt texture once (shared by all passengers)
+    if (!seatbeltTextureLoaded) {
+        seatbeltTextureID = loadTexture("res/textures/seatbelt_texture.jpg");
+        seatbeltTextureLoaded = true;
+    }
 }
 
 Passenger::~Passenger()
@@ -31,19 +42,19 @@ void Passenger::setupSeatbeltMesh()
     // In local space: Y is up, X is right, Z is forward
     float vertices[] = {
         // Front face of belt (visible from front)
-        // Position (x, y, z), Normal (nx, ny, nz)
+        // Position (x, y, z), Normal (nx, ny, nz), UV (u, v)
         // Left shoulder area (top-left of belt)
-        -0.15f,  0.45f, beltDepth,   0.0f, 0.0f, 1.0f,
-        -0.15f - beltWidth, 0.45f, beltDepth,   0.0f, 0.0f, 1.0f,
+        -0.15f,  0.45f, beltDepth,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f,
+        -0.15f - beltWidth, 0.45f, beltDepth,   0.0f, 0.0f, 1.0f,   1.0f, 1.0f,
         // Right hip area (bottom-right of belt)
-         0.12f,  0.15f, beltDepth,   0.0f, 0.0f, 1.0f,
-         0.12f + beltWidth, 0.15f, beltDepth,   0.0f, 0.0f, 1.0f,
+         0.12f,  0.15f, beltDepth,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,
+         0.12f + beltWidth, 0.15f, beltDepth,   0.0f, 0.0f, 1.0f,   1.0f, 0.0f,
 
         // Back face of belt (for backface visibility)
-         0.12f + beltWidth, 0.15f, -beltDepth,   0.0f, 0.0f, -1.0f,
-         0.12f,  0.15f, -beltDepth,   0.0f, 0.0f, -1.0f,
-        -0.15f - beltWidth, 0.45f, -beltDepth,   0.0f, 0.0f, -1.0f,
-        -0.15f,  0.45f, -beltDepth,   0.0f, 0.0f, -1.0f,
+         0.12f + beltWidth, 0.15f, -beltDepth,   0.0f, 0.0f, -1.0f,   0.0f, 0.0f,
+         0.12f,  0.15f, -beltDepth,   0.0f, 0.0f, -1.0f,   1.0f, 0.0f,
+        -0.15f - beltWidth, 0.45f, -beltDepth,   0.0f, 0.0f, -1.0f,   0.0f, 1.0f,
+        -0.15f,  0.45f, -beltDepth,   0.0f, 0.0f, -1.0f,   1.0f, 1.0f,
     };
 
     glGenVertexArrays(1, &seatbeltVAO);
@@ -53,21 +64,27 @@ void Passenger::setupSeatbeltMesh()
     glBindBuffer(GL_ARRAY_BUFFER, seatbeltVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+    int stride = 8 * sizeof(float);
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
     // Normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // UV attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 }
 
 void Passenger::drawSeatbelt(Shader& shader, const Wagon& wagon)
 {
-    // Bright yellow/gold color for visibility
-    shader.setBool("uUseTexture", false);
-    shader.setVec3("uMaterialColor", 1.0f, 0.85f, 0.0f);  // Bright yellow/gold
+    // Use seatbelt texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, seatbeltTextureID);
+    shader.setInt("uDiffMap1", 0);
+    shader.setBool("uUseTexture", true);
 
     // Use same transform as passenger but no extra scaling for belt
     // (belt coordinates are already in passenger's local space relative to SCALE)
