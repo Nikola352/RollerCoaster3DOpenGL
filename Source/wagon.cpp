@@ -29,6 +29,7 @@ Wagon::~Wagon()
 void Wagon::init()
 {
     setupMesh();
+    setupSeatMesh();
 }
 
 void Wagon::setPosition(const glm::vec3& pos)
@@ -247,5 +248,113 @@ void Wagon::draw(Shader& shader)
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+
+    // Draw Seats
+    glBindVertexArray(seatVAO);
+    shader.setVec3("uMaterialColor", color * 0.5f); // Make seats slightly darker
+    for (int i = 0; i < 8; ++i) {
+        drawSingleSeat(shader, model, i);
+    }
     glBindVertexArray(0);
+}
+
+void Wagon::setupSeatMesh() {
+    float v[] = {
+        // Position (3)     // Normal (3)
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+         0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 0.0f,-1.0f,
+
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+         0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+        -0.5f, 0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f, -1.0f, 0.0f, 0.0f,
+        -0.5f,-0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
+
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
+         0.5f,-0.5f,-0.5f,  1.0f, 0.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  1.0f, 0.0f, 0.0f,
+
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
+         0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
+         0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
+        -0.5f,-0.5f, 0.5f,  0.0f,-1.0f, 0.0f,
+        -0.5f,-0.5f,-0.5f,  0.0f,-1.0f, 0.0f,
+
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,
+         0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
+         0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f,
+        -0.5f, 0.5f,-0.5f,  0.0f, 1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f,  0.0f, 1.0f, 0.0f
+    };
+
+    glGenVertexArrays(1, &seatVAO);
+    glGenBuffers(1, &seatVBO);
+    glBindVertexArray(seatVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, seatVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+}
+
+void Wagon::drawSingleSeat(Shader& shader, const glm::mat4& wagonModel, int index) {
+    // Layout: 4 rows (Z), 2 columns (X)
+    int row = index / 2; // 0 to 3
+    int col = index % 2; // 0 to 1
+
+    // Calculate local positions within the wagon
+    float xPos = (col == 0) ? -width * 0.25f : width * 0.25f;
+    float zPos = -depth * 0.35f + (row * (depth * 0.23f));
+    float yPos = -height * 0.3f; // Set on the floor
+
+    glm::vec3 seatLocalPos(xPos, yPos, zPos);
+
+    // 1. Cushion (The base)
+    glm::mat4 cushionModel = wagonModel;
+    cushionModel = glm::translate(cushionModel, seatLocalPos);
+    cushionModel = glm::scale(cushionModel, glm::vec3(width * 0.35f, 0.4f, depth * 0.15f));
+    shader.setMat4("uM", cushionModel);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    // 2. Backrest
+    glm::mat4 backModel = wagonModel;
+    // Move slightly back and up from cushion center
+    backModel = glm::translate(backModel, seatLocalPos + glm::vec3(0.0f, height * 0.25f, -depth * 0.075f));
+    backModel = glm::scale(backModel, glm::vec3(width * 0.35f, height * 0.5f, 0.2f));
+    shader.setMat4("uM", backModel);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+
+Wagon::SeatTransform Wagon::getSeatWorldTransform(int index) const {
+    int row = index / 2;
+    int col = index % 2;
+
+    // Local offset (matches the draw logic)
+    float xOffset = (col == 0) ? -width * 0.25f : width * 0.25f;
+    float zOffset = -depth * 0.35f + (row * (depth * 0.23f));
+    float yOffset = -height * 0.2f; // Offset slightly up so they sit ON the cushion
+
+    // Combine local offset with wagon orientation
+    // Position = WagonPos + (Right * xOffset) + (Up * yOffset) + (Forward * zOffset)
+    glm::vec3 worldPos = position + (rightDir * xOffset) + (upDir * yOffset) + (forwardDir * zOffset);
+
+    return { worldPos, forwardDir, upDir };
 }

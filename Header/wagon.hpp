@@ -53,11 +53,23 @@ public:
     // Height offset above the track center line
     void setHeightOffset(float offset) { heightOffset = offset; }
 
+    struct SeatTransform {
+        glm::vec3 position;
+        glm::vec3 forward;
+        glm::vec3 up;
+    };
+    SeatTransform getSeatWorldTransform(int index) const;
+
 private:
     void setupMesh();
 
     unsigned int VAO, VBO;
     int vertexCount;
+
+    void setupSeatMesh();
+    unsigned int seatVAO, seatVBO;
+    // Helper to draw a single seat in local space
+    void drawSingleSeat(Shader& shader, const glm::mat4& wagonModelMatrix, int index);
 
     float width, height, depth;
     glm::vec3 position;
