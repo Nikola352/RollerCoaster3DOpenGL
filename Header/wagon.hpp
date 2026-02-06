@@ -13,9 +13,11 @@ public:
     // Ride state
     enum class RideState
     {
-        STOPPED,    // Not moving
-        STARTING,   // Accelerating to cruise speed (chain lift)
-        RUNNING     // Normal physics (gravity affects speed)
+        STOPPED,      // Not moving
+        STARTING,     // Accelerating to cruise speed (chain lift)
+        RUNNING,      // Normal physics (gravity affects speed)
+        DECELERATING, // Slowing down (sick passenger)
+        CONSTANT      // Constant velocity (reverse)
     };
 
     Wagon(float width = 10.0f, float height = 5.0f, float depth = 8.0f);
@@ -39,6 +41,9 @@ public:
     // Ride control
     void startRide();
     void stopRide();
+    void stop();  // Fully stop (sets velocity to 0 and state to STOPPED)
+    void setConstantVelocity(float vel);  // Set constant velocity mode (for reverse)
+    void setDeceleration(float decel);    // Set deceleration mode (for slowdown)
     bool isRideRunning() const { return rideState != RideState::STOPPED; }
     RideState getRideState() const { return rideState; }
 
@@ -89,6 +94,7 @@ private:
     // Physics state
     RideState rideState;
     float velocity;      // Current velocity in track units per second
+    float acceleration;  // Current acceleration (used in DECELERATING mode)
 
     // Physics constants
     static constexpr float CHAIN_LIFT_ACCEL = 0.2f;  // Acceleration during startup

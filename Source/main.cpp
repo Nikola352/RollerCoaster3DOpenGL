@@ -19,8 +19,11 @@
 #include "../Header/wagon.hpp"
 #include "../Header/trackpath.hpp"
 #include "../Header/passenger.hpp"
+#include "../Header/Game/RollerCoaster.hpp"
+#include "../Header/Game/Constants.hpp"
 
 #include <vector>
+#include <map>
 
 const int FPS = 75;
 
@@ -41,8 +44,11 @@ bool firstMouse = true;
 // Wagon pointer for keyboard callback access
 Wagon* g_wagon = nullptr;
 
-// Passengers
-std::vector<Passenger*> passengers;
+// Game logic
+RollerCoaster* g_game = nullptr;
+
+// Passenger models (pre-loaded, keyed by seat index)
+std::map<int, Passenger*> passengerModels;
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -77,7 +83,36 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, true);
         break;
 
+    // Game controls
+    case GLFW_KEY_SPACE:
+        if (g_game) {
+            g_game->handleAddPassenger();
+        }
+        break;
+
+    case GLFW_KEY_ENTER:
+        if (g_game) {
+            g_game->handleStartRide();
+        }
+        break;
+
+    // Seat actions (keys 1-8 for seats 0-7)
     case GLFW_KEY_1:
+    case GLFW_KEY_2:
+    case GLFW_KEY_3:
+    case GLFW_KEY_4:
+    case GLFW_KEY_5:
+    case GLFW_KEY_6:
+    case GLFW_KEY_7:
+    case GLFW_KEY_8:
+        if (g_game) {
+            int seatIndex = key - GLFW_KEY_1;  // Convert key to 0-7 index
+            g_game->handleSeatAction(seatIndex);
+        }
+        break;
+
+    // Debug/toggle controls (use F keys to avoid conflict with seat keys)
+    case GLFW_KEY_F1:
         depthTestEnabled = !depthTestEnabled;
         if (depthTestEnabled)
             glEnable(GL_DEPTH_TEST);
@@ -86,7 +121,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         std::cout << (depthTestEnabled ? "DEPTH TEST ENABLED" : "DEPTH TEST DISABLED") << std::endl;
         break;
 
-    case GLFW_KEY_2:
+    case GLFW_KEY_F2:
         faceCullingEnabled = !faceCullingEnabled;
         if (faceCullingEnabled)
             glEnable(GL_CULL_FACE);
@@ -95,40 +130,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         std::cout << (faceCullingEnabled ? "FACE CULLING ENABLED" : "FACE CULLING DISABLED") << std::endl;
         break;
 
-    case GLFW_KEY_3:
+    case GLFW_KEY_F3:
         cullBackFaces = !cullBackFaces;
         glCullFace(cullBackFaces ? GL_BACK : GL_FRONT);
         std::cout << (cullBackFaces ? "CULLING BACK" : "CULLING FRONT") << std::endl;
         break;
 
-    case GLFW_KEY_4:
+    case GLFW_KEY_F4:
         isCCWWinding = !isCCWWinding;
         glFrontFace(isCCWWinding ? GL_CCW : GL_CW);
         std::cout << (isCCWWinding ? "CCW WINDING" : "CW WINDING") << std::endl;
-        break;
-
-    case GLFW_KEY_ENTER:
-        if (g_wagon)
-        {
-            if (g_wagon->isRideRunning())
-            {
-                g_wagon->stopRide();
-                std::cout << "RIDE STOPPED" << std::endl;
-            }
-            else
-            {
-                g_wagon->startRide();
-                std::cout << "RIDE STARTED" << std::endl;
-            }
-        }
-        break;
-
-    case GLFW_KEY_S:
-        // Toggle seatbelts on all passengers
-        for (Passenger* p : passengers) {
-            p->toggleBuckled();
-        }
-        std::cout << "SEATBELTS TOGGLED" << std::endl;
         break;
     }
 }
@@ -182,20 +193,22 @@ int main()
     Wagon wagon(8.0f, 5.0f, 14.0f);
     wagon.init();
     wagon.setHeightOffset(3.5f);  // Height above track center line
-    wagon.setTrackParameter(0.25f);
-    wagon.updateFromTrackPath(trackPath, wagon.getTrackParameter());
     g_wagon = &wagon;  // Set global pointer for keyboard callback
+
+    // Create game logic (will set wagon position to START_TRACK_T)
+    RollerCoaster game(wagon, trackPath);
+    g_game = &game;
 
     // Load student info texture
     unsigned int studentTexture = loadTexture("res/student.png");
 
-    // Create 8 passengers with different models
-    std::cout << "Loading passengers..." << std::endl;
-    for (int i = 0; i < 8; ++i) {
+    // Pre-load all 8 passenger models (will be displayed dynamically based on game state)
+    std::cout << "Loading passenger models..." << std::endl;
+    for (int i = 0; i < static_cast<int>(MAX_PASSENGERS); ++i) {
         std::string path = "res/person" + std::to_string(i + 1) + "/model_mesh.obj";
-        passengers.push_back(new Passenger(path, i));
+        passengerModels[i] = new Passenger(path, i);
     }
-    std::cout << "Passengers loaded." << std::endl;
+    std::cout << "Passenger models loaded." << std::endl;
 
     // Setup overlay quad
     unsigned int overlayVAO, overlayVBO;
@@ -239,14 +252,15 @@ int main()
     glFrontFace(GL_CCW);
 
     std::cout << "Controls:" << std::endl;
-    std::cout << "  Mouse - Orbit camera around track" << std::endl;
-    std::cout << "  ENTER - Start/stop ride" << std::endl;
-    std::cout << "  S     - Toggle seatbelts" << std::endl;
-    std::cout << "  ESC   - Quit" << std::endl;
-    std::cout << "  1     - Toggle depth test" << std::endl;
-    std::cout << "  2     - Toggle face culling" << std::endl;
-    std::cout << "  3     - Toggle back/front face culling" << std::endl;
-    std::cout << "  4     - Toggle winding order (CCW/CW)" << std::endl;
+    std::cout << "  Mouse  - Orbit camera around track" << std::endl;
+    std::cout << "  SPACE  - Add passenger" << std::endl;
+    std::cout << "  1-8    - Seatbelt (onboarding) / Sick (riding) / Remove (offboarding)" << std::endl;
+    std::cout << "  ENTER  - Start ride (all passengers must be buckled)" << std::endl;
+    std::cout << "  ESC    - Quit" << std::endl;
+    std::cout << "  F1     - Toggle depth test" << std::endl;
+    std::cout << "  F2     - Toggle face culling" << std::endl;
+    std::cout << "  F3     - Toggle back/front face culling" << std::endl;
+    std::cout << "  F4     - Toggle winding order (CCW/CW)" << std::endl;
 
     double lastTimeForRefresh = glfwGetTime();
     double lastTime = glfwGetTime();
@@ -261,8 +275,11 @@ int main()
 
         glfwPollEvents();
 
-        // Update wagon physics
+        // Update game logic (handles wagon physics internally)
+        game.update(deltaTime);
         wagon.updatePhysics(trackPath, deltaTime);
+
+        // TODO: Apply green screen filter when a passenger is sick and camera is in first-person mode
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -288,9 +305,16 @@ int main()
         // Draw wagon
         wagon.draw(sceneShader);
 
-        // Draw passengers
-        for (Passenger* p : passengers) {
-            p->draw(sceneShader, wagon);
+        // Draw passengers based on game state
+        for (const Person& person : game.getPassengers()) {
+            int seatIndex = person.getSeatIndex();
+            Passenger* passengerModel = passengerModels[seatIndex];
+
+            // Sync rendering state with game logic
+            passengerModel->setBuckled(person.getHasSeatbelt());
+            passengerModel->setSick(person.getIsSick());
+
+            passengerModel->draw(sceneShader, wagon);
         }
 
         // Render 2D overlay (student info)
@@ -313,12 +337,13 @@ int main()
 
     // Cleanup
     g_wagon = nullptr;
+    g_game = nullptr;
 
-    // Cleanup passengers
-    for (Passenger* p : passengers) {
-        delete p;
+    // Cleanup passenger models
+    for (auto& pair : passengerModels) {
+        delete pair.second;
     }
-    passengers.clear();
+    passengerModels.clear();
 
     glDeleteVertexArrays(1, &overlayVAO);
     glDeleteBuffers(1, &overlayVBO);

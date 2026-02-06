@@ -127,6 +127,9 @@ glm::mat4 Passenger::calculateModelMatrix(const Wagon& wagon) const
 
 void Passenger::draw(Shader& shader, const Wagon& wagon)
 {
+    // TODO: If sick, render with green tint by setting uMaterialColor to green
+    // and potentially using a shader uniform to blend with texture
+
     shader.setBool("uUseTexture", true);
     shader.setMat4("uM", calculateModelMatrix(wagon));
     model->Draw(shader);

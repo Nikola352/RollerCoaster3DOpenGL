@@ -15,6 +15,7 @@ Wagon::Wagon(float width, float height, float depth)
       heightOffset(1.0f),
       rideState(RideState::STOPPED),
       velocity(0.0f),
+      acceleration(0.0f),
       textureID(0),
       seatTextureID(0)
 {
@@ -95,6 +96,26 @@ void Wagon::stopRide()
     velocity = 0.0f;
 }
 
+void Wagon::stop()
+{
+    rideState = RideState::STOPPED;
+    velocity = 0.0f;
+    acceleration = 0.0f;
+}
+
+void Wagon::setConstantVelocity(float vel)
+{
+    rideState = RideState::CONSTANT;
+    velocity = vel;
+    acceleration = 0.0f;
+}
+
+void Wagon::setDeceleration(float decel)
+{
+    rideState = RideState::DECELERATING;
+    acceleration = decel;
+}
+
 void Wagon::updatePhysics(const TrackPath& path, float deltaTime)
 {
     if (rideState == RideState::STOPPED || !path.isInitialized())
@@ -113,7 +134,7 @@ void Wagon::updatePhysics(const TrackPath& path, float deltaTime)
             rideState = RideState::RUNNING;
         }
     }
-    else // RideState::RUNNING
+    else if (rideState == RideState::RUNNING)
     {
         // Get forward direction to calculate slope
         glm::vec3 forward = path.getForward(trackT);
@@ -123,13 +144,13 @@ void Wagon::updatePhysics(const TrackPath& path, float deltaTime)
         float slope = forward.y;
 
         // Apply gravity effect: decelerate uphill, accelerate downhill
-        float acceleration = -GRAVITY_EFFECT * slope;
+        float accel = -GRAVITY_EFFECT * slope;
 
         // Apply friction (always opposes motion)
-        acceleration -= FRICTION * velocity;
+        accel -= FRICTION * velocity;
 
         // Update velocity
-        velocity += acceleration * deltaTime;
+        velocity += accel * deltaTime;
 
         // Clamp velocity to reasonable bounds
         if (velocity < MIN_VELOCITY)
@@ -141,14 +162,33 @@ void Wagon::updatePhysics(const TrackPath& path, float deltaTime)
             velocity = MAX_VELOCITY;
         }
     }
+    else if (rideState == RideState::DECELERATING)
+    {
+        // Apply constant deceleration (acceleration is negative)
+        velocity += acceleration * deltaTime;
+
+        // Don't go below zero
+        if (velocity < 0.0f)
+        {
+            velocity = 0.0f;
+        }
+    }
+    else if (rideState == RideState::CONSTANT)
+    {
+        // Velocity stays constant (already set)
+    }
 
     // Update track position
     trackT += velocity * deltaTime;
 
-    // Loop back to start when reaching the end
+    // Handle wrap-around for track parameter
     if (trackT >= 1.0f)
     {
         trackT -= 1.0f;
+    }
+    else if (trackT < 0.0f)
+    {
+        trackT += 1.0f;
     }
 
     // Update wagon transform

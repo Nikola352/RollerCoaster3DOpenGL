@@ -149,6 +149,9 @@
     <ClCompile Include="Source\util.cpp" />
     <ClCompile Include="Source\wagon.cpp" />
     <ClCompile Include="Source\trackpath.cpp" />
+    <ClCompile Include="Source\Game\Constants.cpp" />
+    <ClCompile Include="Source\Game\Person.cpp" />
+    <ClCompile Include="Source\Game\RollerCoaster.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.frag" />
@@ -168,6 +171,10 @@
     <ClInclude Include="Header\util.hpp" />
     <ClInclude Include="Header\wagon.hpp" />
     <ClInclude Include="Header\trackpath.hpp" />
+    <ClInclude Include="Header\Game\GameState.hpp" />
+    <ClInclude Include="Header\Game\Constants.hpp" />
+    <ClInclude Include="Header\Game\Person.hpp" />
+    <ClInclude Include="Header\Game\RollerCoaster.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

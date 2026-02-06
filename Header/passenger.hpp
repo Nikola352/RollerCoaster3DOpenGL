@@ -23,10 +23,15 @@ public:
     void setBuckled(bool value) { buckled = value; }
     void toggleBuckled() { buckled = !buckled; }
 
+    // Sick state
+    bool isSick() const { return sick; }
+    void setSick(bool value) { sick = value; }
+
 private:
     Model* model;
     int seatIndex;
     bool buckled = false;
+    bool sick = false;
 
     // Seatbelt rendering
     unsigned int seatbeltVAO = 0;
