@@ -1,6 +1,7 @@
 #include "../Header/wagon.hpp"
 #include "../Header/shader.hpp"
 #include "../Header/trackpath.hpp"
+#include "../Header/util.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
 Wagon::Wagon(float width, float height, float depth)
@@ -13,7 +14,8 @@ Wagon::Wagon(float width, float height, float depth)
       trackT(0.0f),
       heightOffset(1.0f),
       rideState(RideState::STOPPED),
-      velocity(0.0f)
+      velocity(0.0f),
+      textureID(0)
 {
 }
 
@@ -24,12 +26,17 @@ Wagon::~Wagon()
         glDeleteVertexArrays(1, &VAO);
         glDeleteBuffers(1, &VBO);
     }
+    if (textureID != 0)
+    {
+        glDeleteTextures(1, &textureID);
+    }
 }
 
 void Wagon::init()
 {
     setupMesh();
     setupSeatMesh();
+    textureID = loadTexture("res/textures/wagon_texture.jpg");
 }
 
 void Wagon::setPosition(const glm::vec3& pos)
@@ -243,13 +250,18 @@ void Wagon::draw(Shader& shader)
     model = model * rotation;
 
     shader.setMat4("uM", model);
-    shader.setBool("uUseTexture", false);
-    shader.setVec3("uMaterialColor", color);
+
+    // Bind wagon texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    shader.setInt("uDiffMap1", 0);
+    shader.setBool("uUseTexture", true);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 
-    // Draw Seats
+    // Draw Seats (solid color, no texture)
+    shader.setBool("uUseTexture", false);
     glBindVertexArray(seatVAO);
     shader.setVec3("uMaterialColor", color * 0.5f); // Make seats slightly darker
     for (int i = 0; i < 8; ++i) {
@@ -321,8 +333,9 @@ void Wagon::drawSingleSeat(Shader& shader, const glm::mat4& wagonModel, int inde
     int col = index % 2; // 0 to 1
 
     // Calculate local positions within the wagon
+    // Reversed Z logic: Row 0 starts at the front (+Z) and goes back (-Z)
     float xPos = (col == 0) ? -width * 0.25f : width * 0.25f;
-    float zPos = -depth * 0.35f + (row * (depth * 0.23f));
+    float zPos = depth * 0.35f - (row * (depth * 0.23f));
     float yPos = -height * 0.3f; // Set on the floor
 
     glm::vec3 seatLocalPos(xPos, yPos, zPos);
@@ -336,7 +349,7 @@ void Wagon::drawSingleSeat(Shader& shader, const glm::mat4& wagonModel, int inde
 
     // 2. Backrest
     glm::mat4 backModel = wagonModel;
-    // Move slightly back and up from cushion center
+    // Move slightly back (-Z) and up from cushion center
     backModel = glm::translate(backModel, seatLocalPos + glm::vec3(0.0f, height * 0.25f, -depth * 0.075f));
     backModel = glm::scale(backModel, glm::vec3(width * 0.35f, height * 0.5f, 0.2f));
     shader.setMat4("uM", backModel);
@@ -349,7 +362,7 @@ Wagon::SeatTransform Wagon::getSeatWorldTransform(int index) const {
 
     // Local offset (matches the draw logic)
     float xOffset = (col == 0) ? -width * 0.25f : width * 0.25f;
-    float zOffset = -depth * 0.35f + (row * (depth * 0.23f));
+    float zOffset = depth * 0.35f - (row * (depth * 0.23f));
     float yOffset = -height * 0.2f; // Offset slightly up so they sit ON the cushion
 
     // Combine local offset with wagon orientation

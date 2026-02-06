@@ -71,6 +71,8 @@ private:
     // Helper to draw a single seat in local space
     void drawSingleSeat(Shader& shader, const glm::mat4& wagonModelMatrix, int index);
 
+    unsigned int textureID;
+
     float width, height, depth;
     glm::vec3 position;
     glm::vec3 color;
@@ -88,11 +90,11 @@ private:
     float velocity;      // Current velocity in track units per second
 
     // Physics constants
-    static constexpr float CHAIN_LIFT_ACCEL = 0.1f;  // Acceleration during startup
+    static constexpr float CHAIN_LIFT_ACCEL = 0.2f;  // Acceleration during startup
     static constexpr float CRUISE_SPEED = 0.15f;      // Target speed after startup
     static constexpr float GRAVITY_EFFECT = 0.04f;    // How much slope affects acceleration
     static constexpr float FRICTION = 0.01f;          // Friction/drag coefficient
-    static constexpr float MIN_VELOCITY = 0.015f;     // Minimum velocity
+    static constexpr float MIN_VELOCITY = 0.02f;     // Minimum velocity
     static constexpr float MAX_VELOCITY = 0.12f;      // Maximum velocity cap
 };
 

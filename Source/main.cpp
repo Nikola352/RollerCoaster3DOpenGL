@@ -17,6 +17,9 @@
 #include "../Header/util.hpp"
 #include "../Header/wagon.hpp"
 #include "../Header/trackpath.hpp"
+#include "../Header/passenger.hpp"
+
+#include <vector>
 
 const int FPS = 75;
 
@@ -29,13 +32,16 @@ bool isCCWWinding = true;
 // Camera state (orbit camera)
 float cameraYaw = -45.0f;    // Horizontal angle
 float cameraPitch = 20.0f;   // Vertical angle
-float cameraDistance = 150.0f;
-glm::vec3 cameraTarget(0.0f, 10.0f, 0.0f);
+float cameraDistance = 130.0f;
+glm::vec3 cameraTarget(30.0f, 10.0f, 10.0f);
 double lastMouseX = 0, lastMouseY = 0;
 bool firstMouse = true;
 
 // Wagon pointer for keyboard callback access
 Wagon* g_wagon = nullptr;
+
+// Passengers
+std::vector<Passenger*> passengers;
 
 void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -115,6 +121,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
         }
         break;
+
+    case GLFW_KEY_S:
+        // Toggle seatbelts on all passengers
+        for (Passenger* p : passengers) {
+            p->toggleBuckled();
+        }
+        std::cout << "SEATBELTS TOGGLED" << std::endl;
+        break;
     }
 }
 
@@ -174,15 +188,23 @@ int main()
     // Load student info texture
     unsigned int studentTexture = loadTexture("res/student.png");
 
+    // Create 8 passengers with different models
+    std::cout << "Loading passengers..." << std::endl;
+    for (int i = 0; i < 8; ++i) {
+        std::string path = "res/person" + std::to_string(i + 1) + "/model_mesh.obj";
+        passengers.push_back(new Passenger(path, i));
+    }
+    std::cout << "Passengers loaded." << std::endl;
+
     // Setup overlay quad
     unsigned int overlayVAO, overlayVBO;
     setupOverlayQuad(overlayVAO, overlayVBO);
 
     // Setup 3D scene
     sceneShader.use();
-    sceneShader.setVec3("uLightPos", 50, 100, 50);
     sceneShader.setVec3("uViewPos", 0, 30, 100);
     sceneShader.setVec3("uLightColor", 1, 1, 1);
+    sceneShader.setFloat("uLightIntensity", 1.5f);
     sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
     sceneShader.setBool("uUseTexture", false);  // Track has no texture
 
@@ -218,6 +240,7 @@ int main()
     std::cout << "Controls:" << std::endl;
     std::cout << "  Mouse - Orbit camera around track" << std::endl;
     std::cout << "  ENTER - Start/stop ride" << std::endl;
+    std::cout << "  S     - Toggle seatbelts" << std::endl;
     std::cout << "  ESC   - Quit" << std::endl;
     std::cout << "  1     - Toggle depth test" << std::endl;
     std::cout << "  2     - Toggle face culling" << std::endl;
@@ -254,13 +277,20 @@ int main()
         sceneShader.use();
         sceneShader.setMat4("uV", view);
         sceneShader.setVec3("uViewPos", cameraPos);
+        sceneShader.setVec3("uLightPos", cameraPos + glm::vec3(0.0f, 50.0f, 0.0f));
         sceneShader.setMat4("uM", model);
 
+        sceneShader.setBool("uUseTexture", false);
         sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
         track.Draw(sceneShader);
 
         // Draw wagon
         wagon.draw(sceneShader);
+
+        // Draw passengers
+        for (Passenger* p : passengers) {
+            p->draw(sceneShader, wagon);
+        }
 
         // Render 2D overlay (student info)
         glDepthFunc(GL_ALWAYS); // Always pass depth test for overlay
@@ -282,6 +312,13 @@ int main()
 
     // Cleanup
     g_wagon = nullptr;
+
+    // Cleanup passengers
+    for (Passenger* p : passengers) {
+        delete p;
+    }
+    passengers.clear();
+
     glDeleteVertexArrays(1, &overlayVAO);
     glDeleteBuffers(1, &overlayVBO);
     glDeleteTextures(1, &studentTexture);
