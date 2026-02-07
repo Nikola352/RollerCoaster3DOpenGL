@@ -259,3 +259,7 @@ const std::vector<Person>& RollerCoaster::getPassengers() const {
 bool RollerCoaster::isSeatOccupied(int seatIndex) const {
     return findPassengerBySeat(seatIndex) != nullptr;
 }
+
+const Person* RollerCoaster::getPassengerBySeat(int seatIndex) const {
+    return findPassengerBySeat(seatIndex);
+}

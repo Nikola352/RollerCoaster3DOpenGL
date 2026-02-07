@@ -37,4 +37,5 @@ public:
     size_t getPassengerCount() const;
     const std::vector<Person>& getPassengers() const;
     bool isSeatOccupied(int seatIndex) const;
+    const Person* getPassengerBySeat(int seatIndex) const;  // Public accessor for camera passenger check
 };

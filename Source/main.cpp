@@ -33,11 +33,25 @@ bool faceCullingEnabled = false;
 bool cullBackFaces = true;
 bool isCCWWinding = true;
 
-// Camera state (orbit camera)
+// Camera mode
+enum class CameraMode {
+    ORBIT,       // Ground perspective, orbiting around track
+    FIRST_PERSON // Sitting in front seat of wagon
+};
+
+CameraMode cameraMode = CameraMode::ORBIT;
+
+// Orbit camera state
 float cameraYaw = -45.0f;    // Horizontal angle
 float cameraPitch = 20.0f;   // Vertical angle
 float cameraDistance = 130.0f;
 glm::vec3 cameraTarget(30.0f, 10.0f, 10.0f);
+
+// First-person camera state (look offset from wagon forward)
+float fpYaw = 0.0f;
+float fpPitch = 0.0f;
+
+// Mouse tracking
 double lastMouseX = 0, lastMouseY = 0;
 bool firstMouse = true;
 
@@ -65,12 +79,24 @@ void mouseCallback(GLFWwindow* window, double xpos, double ypos)
     lastMouseX = xpos;
     lastMouseY = ypos;
 
-    cameraYaw += xoffset;
-    cameraPitch += yoffset;
+    if (cameraMode == CameraMode::ORBIT) {
+        cameraYaw += xoffset;
+        cameraPitch += yoffset;
 
-    // Clamp pitch to avoid flipping
-    if (cameraPitch > 89.0f) cameraPitch = 89.0f;
-    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+        // Clamp pitch to avoid flipping
+        if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+        if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+    } else {
+        // First-person mode - look around from seat
+        fpYaw += xoffset;
+        fpPitch += yoffset;
+
+        // Limit look range (can't look too far behind or up/down)
+        if (fpYaw > 120.0f) fpYaw = 120.0f;
+        if (fpYaw < -120.0f) fpYaw = -120.0f;
+        if (fpPitch > 60.0f) fpPitch = 60.0f;
+        if (fpPitch < -60.0f) fpPitch = -60.0f;
+    }
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -140,6 +166,23 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         isCCWWinding = !isCCWWinding;
         glFrontFace(isCCWWinding ? GL_CCW : GL_CW);
         std::cout << (isCCWWinding ? "CCW WINDING" : "CW WINDING") << std::endl;
+        break;
+
+    case GLFW_KEY_V:
+        if (cameraMode == CameraMode::ORBIT) {
+            // Only allow FPV if there are passengers
+            if (g_game && !g_game->getPassengers().empty()) {
+                cameraMode = CameraMode::FIRST_PERSON;
+                fpYaw = 0.0f;
+                fpPitch = 0.0f;
+                std::cout << "CAMERA: FIRST PERSON" << std::endl;
+            } else {
+                std::cout << "CAMERA: Cannot switch to FPV - no passengers!" << std::endl;
+            }
+        } else {
+            cameraMode = CameraMode::ORBIT;
+            std::cout << "CAMERA: ORBIT" << std::endl;
+        }
         break;
     }
 }
@@ -214,6 +257,11 @@ int main()
     unsigned int overlayVAO, overlayVBO;
     setupOverlayQuad(overlayVAO, overlayVBO);
 
+    // Setup green overlay for sick camera passenger
+    unsigned int greenOverlayVAO, greenOverlayVBO;
+    setupFullscreenQuad(greenOverlayVAO, greenOverlayVBO);
+    unsigned int greenTexture = createGreenTexture();
+
     // Setup 3D scene
     sceneShader.use();
     sceneShader.setVec3("uViewPos", 0, 30, 100);
@@ -257,6 +305,7 @@ int main()
     std::cout << "  SPACE  - Add passenger" << std::endl;
     std::cout << "  1-8    - Seatbelt (onboarding) / Sick (riding) / Remove (offboarding)" << std::endl;
     std::cout << "  ENTER  - Start ride (all passengers must be buckled)" << std::endl;
+    std::cout << "  V      - Toggle camera (orbit / first-person)" << std::endl;
     std::cout << "  ESC    - Quit" << std::endl;
     std::cout << "  F1     - Toggle depth test" << std::endl;
     std::cout << "  F2     - Toggle face culling" << std::endl;
@@ -265,6 +314,7 @@ int main()
 
     double lastTimeForRefresh = glfwGetTime();
     double lastTime = glfwGetTime();
+    size_t prevPassengerCount = 0;
 
     // Render loop
     while (!glfwWindowShouldClose(window))
@@ -280,17 +330,50 @@ int main()
         game.update(deltaTime);
         wagon.updatePhysics(trackPath, deltaTime);
 
-        // TODO: Apply green screen filter when a passenger is sick and camera is in first-person mode
+        // Auto-switch camera on passenger count changes
+        size_t currentPassengerCount = game.getPassengers().size();
+        if (prevPassengerCount == 0 && currentPassengerCount > 0) {
+            // First passenger added → switch to FPV
+            cameraMode = CameraMode::FIRST_PERSON;
+            fpYaw = 0.0f;
+            fpPitch = 0.0f;
+        } else if (currentPassengerCount == 0 && prevPassengerCount > 0) {
+            // Last passenger removed → switch to orbit
+            cameraMode = CameraMode::ORBIT;
+        }
+        prevPassengerCount = currentPassengerCount;
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Calculate camera position from spherical coordinates
-        float camX = cameraDistance * cos(glm::radians(cameraPitch)) * cos(glm::radians(cameraYaw));
-        float camY = cameraDistance * sin(glm::radians(cameraPitch));
-        float camZ = cameraDistance * cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
-        glm::vec3 cameraPos = cameraTarget + glm::vec3(camX, camY, camZ);
+        // Calculate view matrix based on camera mode
+        glm::mat4 view;
+        glm::vec3 cameraPos;
 
-        glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
+        if (cameraMode == CameraMode::ORBIT) {
+            // Orbit camera: spherical coordinates around target
+            float camX = cameraDistance * cos(glm::radians(cameraPitch)) * cos(glm::radians(cameraYaw));
+            float camY = cameraDistance * sin(glm::radians(cameraPitch));
+            float camZ = cameraDistance * cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
+            cameraPos = cameraTarget + glm::vec3(camX, camY, camZ);
+            view = glm::lookAt(cameraPos, cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
+        } else {
+            // First-person camera from front seat (seat 0)
+            Wagon::SeatTransform seat = wagon.getSeatWorldTransform(0);
+            cameraPos = seat.position + seat.up * 6.0f + seat.forward * 0.5f; // Eye height above seat + in front of person model
+
+            // Calculate look direction with mouse offset
+            glm::vec3 right = glm::normalize(glm::cross(seat.forward, seat.up));
+
+            // Apply yaw rotation (around up axis)
+            glm::mat4 yawRot = glm::rotate(glm::mat4(1.0f), glm::radians(fpYaw), seat.up);
+            glm::vec3 lookDir = glm::vec3(yawRot * glm::vec4(seat.forward, 0.0f));
+
+            // Apply pitch rotation (around right axis)
+            glm::mat4 pitchRot = glm::rotate(glm::mat4(1.0f), glm::radians(fpPitch), right);
+            lookDir = glm::vec3(pitchRot * glm::vec4(lookDir, 0.0f));
+
+            view = glm::lookAt(cameraPos, cameraPos + lookDir, seat.up);
+        }
 
         // Render 3D scene
         sceneShader.use();
@@ -317,6 +400,19 @@ int main()
             passengerModel->setSick(person.getIsSick());
 
             passengerModel->draw(sceneShader, wagon);
+        }
+
+        // Green screen filter when camera passenger (seat 0) is sick
+        if (cameraMode == CameraMode::FIRST_PERSON) {
+            const Person* frontPassenger = game.getPassengerBySeat(0);
+            if (frontPassenger && frontPassenger->getIsSick()) {
+                glDepthFunc(GL_ALWAYS);
+                overlayShader.use();
+                glBindTexture(GL_TEXTURE_2D, greenTexture);
+                glBindVertexArray(greenOverlayVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                glDepthFunc(GL_LESS);
+            }
         }
 
         // Render 2D overlay (student info)
@@ -349,7 +445,10 @@ int main()
 
     glDeleteVertexArrays(1, &overlayVAO);
     glDeleteBuffers(1, &overlayVBO);
+    glDeleteVertexArrays(1, &greenOverlayVAO);
+    glDeleteBuffers(1, &greenOverlayVBO);
     glDeleteTextures(1, &studentTexture);
+    glDeleteTextures(1, &greenTexture);
 
     glfwTerminate();
     return 0;
