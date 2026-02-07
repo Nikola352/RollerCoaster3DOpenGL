@@ -11,6 +11,7 @@ uniform vec3 uLightColor;
 uniform float uLightIntensity;
 uniform vec3 uMaterialColor;
 uniform bool uUseTexture;
+uniform vec3 uTintColor;
 
 uniform sampler2D uDiffMap1;
 
@@ -38,6 +39,9 @@ void main()
     } else {
         objectColor = uMaterialColor;
     }
+
+    // Apply tint (green when sick, white otherwise)
+    objectColor *= uTintColor;
 
     FragColor = vec4(objectColor * (ambient + diffuse + specular), 1.0);
 }

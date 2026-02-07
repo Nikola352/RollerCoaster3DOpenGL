@@ -221,6 +221,7 @@ int main()
     sceneShader.setFloat("uLightIntensity", 1.5f);
     sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
     sceneShader.setBool("uUseTexture", false);  // Track has no texture
+    sceneShader.setVec3("uTintColor", 1.0f, 1.0f, 1.0f);  // Default: no tint
 
     float aspectRatio = (float)mode->width / (float)mode->height;
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 500.0f);
@@ -300,6 +301,7 @@ int main()
 
         sceneShader.setBool("uUseTexture", false);
         sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
+        sceneShader.setVec3("uTintColor", 1.0f, 1.0f, 1.0f);  // Reset tint for track/wagon
         track.Draw(sceneShader);
 
         // Draw wagon
