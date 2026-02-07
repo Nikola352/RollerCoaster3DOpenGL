@@ -14,4 +14,8 @@ void setupOverlayQuad(unsigned int& VAO, unsigned int& VBO);
 void setupFullscreenQuad(unsigned int& VAO, unsigned int& VBO);
 unsigned int createGreenTexture();
 
+// Ground cuboid (textured, uses scene shader vertex format: pos3 normal3 uv2)
+void setupGroundMesh(unsigned int& VAO, unsigned int& VBO, int& vertexCount,
+                     float sizeX, float sizeZ, float height, float uvTile);
+
 #endif

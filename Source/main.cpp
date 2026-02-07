@@ -262,6 +262,17 @@ int main()
     setupFullscreenQuad(greenOverlayVAO, greenOverlayVBO);
     unsigned int greenTexture = createGreenTexture();
 
+    // Setup ground
+    unsigned int groundVAO, groundVBO;
+    int groundVertexCount;
+    setupGroundMesh(groundVAO, groundVBO, groundVertexCount, 500.0f, 500.0f, 2.0f, 40.0f);
+    unsigned int grassTexture = loadTexture("res/textures/grass_texture.jpg");
+    // Override wrap mode to repeat for tiling
+    glBindTexture(GL_TEXTURE_2D, grassTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     // Setup 3D scene
     sceneShader.use();
     sceneShader.setVec3("uViewPos", 0, 30, 100);
@@ -382,9 +393,21 @@ int main()
         sceneShader.setVec3("uLightPos", cameraPos + glm::vec3(0.0f, 50.0f, 0.0f));
         sceneShader.setMat4("uM", model);
 
+        // Draw ground
+        glm::mat4 groundModel = glm::translate(glm::mat4(1.0f), glm::vec3(30.0f, -5.0f, 10.0f));
+        sceneShader.setMat4("uM", groundModel);
+        sceneShader.setBool("uUseTexture", true);
+        sceneShader.setVec3("uTintColor", 1.0f, 1.0f, 1.0f);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTexture);
+        glBindVertexArray(groundVAO);
+        glDrawArrays(GL_TRIANGLES, 0, groundVertexCount);
+        glBindVertexArray(0);
+
+        // Draw track
+        sceneShader.setMat4("uM", model);
         sceneShader.setBool("uUseTexture", false);
         sceneShader.setVec3("uMaterialColor", 0.6f, 0.3f, 0.1f);  // Brown track color
-        sceneShader.setVec3("uTintColor", 1.0f, 1.0f, 1.0f);  // Reset tint for track/wagon
         track.Draw(sceneShader);
 
         // Draw wagon
@@ -447,6 +470,9 @@ int main()
     glDeleteBuffers(1, &overlayVBO);
     glDeleteVertexArrays(1, &greenOverlayVAO);
     glDeleteBuffers(1, &greenOverlayVBO);
+    glDeleteVertexArrays(1, &groundVAO);
+    glDeleteBuffers(1, &groundVBO);
+    glDeleteTextures(1, &grassTexture);
     glDeleteTextures(1, &studentTexture);
     glDeleteTextures(1, &greenTexture);
 

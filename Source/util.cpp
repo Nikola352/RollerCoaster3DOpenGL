@@ -126,6 +126,88 @@ void setupFullscreenQuad(unsigned int& VAO, unsigned int& VBO)
     glBindVertexArray(0);
 }
 
+void setupGroundMesh(unsigned int& VAO, unsigned int& VBO, int& vertexCount,
+                     float sizeX, float sizeZ, float height, float uvTile)
+{
+    // Cuboid from (-sizeX/2, -height, -sizeZ/2) to (sizeX/2, 0, sizeZ/2)
+    // Vertex format: pos(3) normal(3) uv(2)
+    float hx = sizeX / 2.0f;
+    float hz = sizeZ / 2.0f;
+
+    float vertices[] = {
+        // Top face (y=0), normal up
+        -hx, 0, -hz,   0,1,0,   0,0,
+         hx, 0, -hz,   0,1,0,   uvTile,0,
+         hx, 0,  hz,   0,1,0,   uvTile,uvTile,
+        -hx, 0, -hz,   0,1,0,   0,0,
+         hx, 0,  hz,   0,1,0,   uvTile,uvTile,
+        -hx, 0,  hz,   0,1,0,   0,uvTile,
+
+        // Bottom face (y=-height), normal down
+        -hx, -height,  hz,   0,-1,0,   0,0,
+         hx, -height,  hz,   0,-1,0,   uvTile,0,
+         hx, -height, -hz,   0,-1,0,   uvTile,uvTile,
+        -hx, -height,  hz,   0,-1,0,   0,0,
+         hx, -height, -hz,   0,-1,0,   uvTile,uvTile,
+        -hx, -height, -hz,   0,-1,0,   0,uvTile,
+
+        // Front face (z=hz), normal +Z
+        -hx, -height, hz,   0,0,1,   0,0,
+         hx, -height, hz,   0,0,1,   uvTile,0,
+         hx,  0,      hz,   0,0,1,   uvTile,1,
+        -hx, -height, hz,   0,0,1,   0,0,
+         hx,  0,      hz,   0,0,1,   uvTile,1,
+        -hx,  0,      hz,   0,0,1,   0,1,
+
+        // Back face (z=-hz), normal -Z
+         hx, -height, -hz,   0,0,-1,   0,0,
+        -hx, -height, -hz,   0,0,-1,   uvTile,0,
+        -hx,  0,      -hz,   0,0,-1,   uvTile,1,
+         hx, -height, -hz,   0,0,-1,   0,0,
+        -hx,  0,      -hz,   0,0,-1,   uvTile,1,
+         hx,  0,      -hz,   0,0,-1,   0,1,
+
+        // Right face (x=hx), normal +X
+         hx, -height,  hz,   1,0,0,   0,0,
+         hx, -height, -hz,   1,0,0,   uvTile,0,
+         hx,  0,      -hz,   1,0,0,   uvTile,1,
+         hx, -height,  hz,   1,0,0,   0,0,
+         hx,  0,      -hz,   1,0,0,   uvTile,1,
+         hx,  0,       hz,   1,0,0,   0,1,
+
+        // Left face (x=-hx), normal -X
+        -hx, -height, -hz,   -1,0,0,   0,0,
+        -hx, -height,  hz,   -1,0,0,   uvTile,0,
+        -hx,  0,       hz,   -1,0,0,   uvTile,1,
+        -hx, -height, -hz,   -1,0,0,   0,0,
+        -hx,  0,       hz,   -1,0,0,   uvTile,1,
+        -hx,  0,      -hz,   -1,0,0,   0,1,
+    };
+
+    vertexCount = 36;
+
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    int stride = 8 * sizeof(float);
+    // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+    // Normal
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    // UV
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
 unsigned int createGreenTexture()
 {
     unsigned int textureID;
